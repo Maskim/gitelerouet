@@ -13,20 +13,21 @@ var paspartu_width_init = 0.02;
 var directionNavArrows = 'arrow_carrot-';
 var directionNavArrowsTestimonials = 'fa fa-angle-';
 var add_for_admin_bar = 0;
-	header_height = 110;
-	min_header_height_sticky = 90;
-	scroll_amount_for_sticky = 50000;
+	header_height = 100;
+	min_header_height_scroll = 70;
+	min_header_height_sticky = 64;
 
 
 
 
-    paspartu_width_init = 0.018;
+    paspartu_width_init = 0.0185;
 
 var logo_height = 130; // borderland logo height
 var logo_width = 280; // borderland logo width
-	    logo_width = 280;
-    logo_height = 130;
+	    logo_width = 320;
+    logo_height = 285;
 
+		menu_item_margin = 2;
 	
 	header_top_height = 0;
 var loading_text;
@@ -37,15 +38,16 @@ finished_text = 'No more posts';
 var piechartcolor;
 piechartcolor	= "#303030";
 
-	piechartcolor = "#000000";
+	piechartcolor = "#303030";
 
 	directionNavArrows = 'arrow_carrot-';
 
+	directionNavArrowsTestimonials = 'arrow_carrot-';
 
 var no_ajax_pages = [];
-var eltd_root = 'http://borderland.dev/';
-var theme_root = 'http://borderland.dev/wp-content/themes/borderland/';
-var header_style_admin = "";
+var eltd_root = 'http://gitelesrouets.com/';
+var theme_root = 'http://gitelesrouets.com/wp-content/themes/borderland/';
+var header_style_admin = "light";
 if(typeof no_ajax_obj !== 'undefined') {
 no_ajax_pages = no_ajax_obj.no_ajax_pages;
 }
