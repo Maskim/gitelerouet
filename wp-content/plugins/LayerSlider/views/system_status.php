@@ -14,14 +14,27 @@ if( !empty( $_GET['user'] ) ) {
 	$deleteLink = wp_nonce_url('users.php?action=delete&amp;user='.(int)$_GET['user'], 'bulk-users' );
 }
 
-$authorized 	= get_option('layerslider-authorized-site', false);
-$isAdmin 		= current_user_can('manage_options');
+$authorized = LS_Config::isActivatedSite();
+$isAdmin 	= current_user_can('manage_options');
+
+$notifications = array(
+
+	'dbUpdateSuccess' => __('LayerSlider has attempted to update your database. Server restrictions may apply, please verify whether it was successful.', 'LayerSlider')
+);
 
 ?><div class="wrap">
 	<h2>
 		<?php _e('System Status', 'LayerSlider') ?>
-		<a href="<?php echo admin_url('?page=layerslider') ?>" class="add-new-h2"><?php _e('Back', 'LayerSlider') ?></a>
+		<a href="<?php echo admin_url('admin.php?page=layerslider-options') ?>" class="add-new-h2"><?php _e('&larr; Options', 'LayerSlider') ?></a>
 	</h2>
+
+	<div class="notice notice-info">
+		<p>
+			<?php _e('This page is intended to help you identifying possible issues and to display relevant debug information about your site.', 'LayerSlider') ?>
+			<?php _e('Whenever a potential issues is detected, it will be marked with red or orange text describing the nature of that issue.', 'LayerSlider') ?>
+			<strong><?php _e('Please keep in mind that in most cases only your web hosting company can change server settings, thus you should contact them with the messages provided (if any).', 'LayerSlider') ?></strong>
+		</p>
+	</div>
 
 	<!-- Error messages -->
 	<?php if(isset($_GET['message'])) : ?>
@@ -43,11 +56,6 @@ $isAdmin 		= current_user_can('manage_options');
 		$uploadB 	= str_replace(array('G', 'M', 'K'), array('000000000', '000000', '000'), ini_get('upload_max_filesize'));
 	?>
 	<div class="ls-system-status">
-		<ul>
-			<li><?php _e('This page is intended to help you identifying possible issues and to display relevant debug information about your site.', 'LayerSlider') ?></li>
-			<li><?php _e('Whenever a potential issues is detected, it will be marked with red or orange text describing the nature of that issue.', 'LayerSlider') ?></li>
-			<li><?php _e('Please keep in mind that in most cases only your web hosting company can change server settings, thus you should contact them with the messages provided (if any).', 'LayerSlider') ?></li>
-		</ul>
 		<div class="ls-box km-tabs-inner">
 			<table>
 				<thead>
@@ -62,7 +70,7 @@ $isAdmin 		= current_user_can('manage_options');
 						<td><?php echo ! empty($authorized) ? __('Activated', 'LayerSlider') : __('Not set', 'LayerSlider') ?></td>
 						<td>
 							<?php if( ! $authorized ) : ?>
-							<span><?php echo sprintf(__('Activate your copy of LayerSlider to receive updates, so you can always use the latest release with all the new features and bug fixes. %sClick here to learn more%s.', 'LayerSlider'), '<a href="https://support.kreaturamedia.com/docs/layersliderwp/documentation.html#updating" target="_blank">', '</a>') ?></span>
+							<span><?php echo sprintf(__('Activate your copy of LayerSlider for auto-updates, or ask new versions from the theme author, so you can always use the latest release with all the new features and bug fixes. %sClick here to learn more%s.', 'LayerSlider'), '<a href="https://layerslider.kreaturamedia.com/documentation/#updating" target="_blank">', '</a>') ?></span>
 							<?php endif ?>
 						</td>
 					</tr>
@@ -75,6 +83,20 @@ $isAdmin 		= current_user_can('manage_options');
 							<?php if( $test ) : ?>
 							<span><?php echo sprintf( __('Update to latest version (%1$s), as we are constantly working on new features, improvements and bug fixes.', 'LayerSlider'), $latest) ?></span>
 							<?php endif ?>
+						</td>
+					</tr>
+					<tr>
+						<?php $test = layerslider_verify_db_tables(); ?>
+						<td><?php _e('LayerSlider database:', 'LayerSlider') ?></td>
+						<td><span class="dashicons <?php echo ! empty($test) ? 'dashicons-yes' : 'dashicons-warning' ?>"></span></td>
+						<td><?php echo ! empty($test) ? __('OK', 'LayerSlider') : __('Error', 'LayerSlider') ?></td>
+						<td class="has-button">
+							<div>
+								<?php if( ! $test ) : ?>
+								<span><?php echo __('Your database needs an update in order for LayerSlider to work properly. Please press the ’Update Database’ button on the right. If this does not help, you need to contact your web server hosting company to fix any issue preventing plugins creating and updating database tables.', 'LayerSlider') ?></span>
+								<?php endif ?>
+								<a href="<?php echo wp_nonce_url('admin.php?page=layerslider-options&section=system-status&action=database_update', 'database_update') ?>" class="button button-small"><?php _e('Update Database', 'LayerSlider') ?></a>
+							</div>
 						</td>
 					</tr>
 					<tr>
@@ -95,6 +117,7 @@ $isAdmin 		= current_user_can('manage_options');
 
 						if( $authorized ) :
 						$test = strpos(LS_ROOT_FILE, '/wp-content/plugins/LayerSlider/');
+						if( ! $test ) { $test = strpos(LS_ROOT_FILE, '\\wp-content\\plugins\\LayerSlider\\'); }
 
 					?>
 					<tr>
@@ -190,7 +213,7 @@ $isAdmin 		= current_user_can('manage_options');
 						<td><?php echo phpversion() ?></td>
 						<td>
 							<?php if( ! empty( $test ) ) : ?>
-							<span><?php _e('LayerSlider requires PHP 5.3.0 or newer. Please contact your host and ask them to upgrade PHP on your web server.', 'LayerSlider') ?></span>
+							<span><?php _e('LayerSlider requires PHP 5.3.0 or newer. Please contact your host and ask them to upgrade PHP on your web server. Alternatively, they often offer a customer dashboard for their services, which might also provide an option to choose your preferred PHP version.', 'LayerSlider') ?></span>
 							<?php endif ?>
 						</td>
 					</tr>
@@ -206,7 +229,7 @@ $isAdmin 		= current_user_can('manage_options');
 						</td>
 					</tr>
 					<tr>
-						<?php $test = (int)$memory > 0 && $memoryB < 64 * 1024 * 1024; ?>
+						<?php $test = (int)$memory > 0 && $memoryB < 64 * 1000 * 1000; ?>
 						<td><?php _e('PHP Memory Limit:', 'LayerSlider') ?></td>
 						<td><span class="dashicons <?php echo empty($test) ? 'dashicons-yes' : 'dashicons-warning' ?>"></span></td>
 						<td><?php echo $memory ?></td>
@@ -218,7 +241,7 @@ $isAdmin 		= current_user_can('manage_options');
 
 					</tr>
 					<tr>
-						<?php $test = $postMaxB < 16 * 1024 * 1024; ?>
+						<?php $test = $postMaxB < 16 * 1000 * 1000; ?>
 						<td><?php _e('PHP Post Max Size:', 'LayerSlider') ?></td>
 						<td><span class="dashicons <?php echo empty($test) ? 'dashicons-yes' : 'dashicons-warning' ?>"></span></td>
 						<td><?php echo ini_get('post_max_size') ?></td>
@@ -229,7 +252,7 @@ $isAdmin 		= current_user_can('manage_options');
 						</td>
 					</tr>
 					<tr>
-						<?php $test = $uploadB < 16 * 1024 * 1024; ?>
+						<?php $test = $uploadB < 16 * 1000 * 1000; ?>
 						<td><?php _e('PHP Max Upload Size:', 'LayerSlider') ?></td>
 						<td><span class="dashicons <?php echo empty($test) ? 'dashicons-yes' : 'dashicons-warning' ?>"></span></td>
 						<td><?php echo ini_get('upload_max_filesize') ?></td>
@@ -305,18 +328,7 @@ $isAdmin 		= current_user_can('manage_options');
 						<td><?php echo $test ? __('OK', 'LayerSlider') : __('Blocked', 'LayerSlider') ?></td>
 						<td>
 							<?php if( ! $test ) : ?>
-							<span><?php _e('Failed to connect to our update server. This could cause issues with product activation, serving updates or downloading templates from the Template Store. It’s most likely a web server configuration issue. Please contact your web host and ask them to allow external connection to the following domain: <mark>repository.kreaturamedia.com</mark>', 'LayerSlider') ?></span>
-							<?php endif ?>
-						</td>
-					</tr>
-					<tr>
-						<?php $test = ! empty( $_SERVER['SERVER_NAME'] ); ?>
-						<td><?php _e('$_SERVER variables', 'LayerSlider') ?></td>
-						<td><span class="dashicons <?php echo ! empty($test) ? 'dashicons-yes' : 'dashicons-warning' ?>"></span></td>
-						<td><?php echo $test ? __('OK', 'LayerSlider') : __('Unavailable', 'LayerSlider') ?></td>
-						<td>
-							<?php if( ! $test ) : ?>
-							<span><?php _e('Product activation and some of the related features depend on the <mark>$_SERVER[\'SERVER_NAME\']</mark> PHP variable. It seems that this variable is not available on your installation due to the web server configuration. Please contact your hosting provider and show them this message, they will know what to change.', 'LayerSlider') ?></span>
+							<span><?php _e('Failed to connect to our update server. This could cause issues with product activation, serving updates or downloading templates from the Template Store. It’s most likely a web server configuration issue. Please contact your server host and ask them to allow external connections to <mark>repository.kreaturamedia.com</mark> domain and have cURL and the necessary components installed.', 'LayerSlider') ?></span>
 							<?php endif ?>
 						</td>
 					</tr>
@@ -351,50 +363,48 @@ $isAdmin 		= current_user_can('manage_options');
 
 	<script type="text/html" id="ls-phpinfo-modal">
 		<div id="ls-phpinfo-modal-window">
-			<header class="header">
-				<h1><?php _e('Advanced Debug Details', 'LayerSlider') ?></h1>
-				<b class="dashicons dashicons-no"></b>
-			</header>
-			<iframe class="km-ui-modal-scrollable"></iframe>
+			<h1 class="kmw-modal-title"><?php _e('Advanced Debug Details', 'LayerSlider') ?></h1>
+			<iframe></iframe>
 		</div>
 	</script>
 
 
 	<script type="text/html" id="ls-erase-modal">
 		<div id="ls-erase-modal-window">
-			<header>
-				<h1><?php _e('Erase All Plugin Data', 'LayerSlider') ?></h1>
-				<b class="dashicons dashicons-no"></b>
-			</header>
-			<div class="km-ui-modal-scrollable">
-				<form method="post" class="inner" onsubmit="return confirm('<?php _e('This action cannot be undone. All LayerSlider data will be permanently deleted and you will not be able to restore them afterwards. Please consider every possibility before deciding.\r\n\r\n Are you sure you want to continue?', 'LayerSlider') ?>');">
-					<?php wp_nonce_field('erase_data'); ?>
-					<p><?php _e('When you remove LayerSlider, it does not automatically delete your settings and sliders by default to prevent accidental data loss. You can use this utility if you really want to erase all data used by LayerSlider.', 'LayerSlider') ?></p>
-					<p class="km-ui-font-dark"><?php _e('The following actions will be performed when you confirm your intention to erase all plugin data:', 'LayerSlider'); ?></p>
 
-					<ul>
-						<li><?php _e('Remove the <i>wp_layerslider</i> database table, which stores your sliders.', 'LayerSlider') ?></li>
-						<li><?php _e('Remove the relevant entries from the <i>wp_options</i> database table, which stores plugin settings.', 'LayerSlider') ?></li>
-						<li><?php _e('Remove the relevant entries from the <i>wp_usermeta</i> database table, which stores user associated plugin settings.', 'LayerSlider') ?></li>
-						<li><?php _e('Remove files and folders created by LayerSlider from the <i>/wp-content/uploads</i> directory. This will not affect your own uploads in the Media Library.', 'LayerSlider') ?></li>
-						<li><?php _e('Deactivate LayerSlider as a last step.', 'LayerSlider') ?></li>
-					</ul>
-					<p><i><?php _e('The actions above will be performed on this blog only. If you have a multisite network and you are a network administrator, then an “Apply to all sites” checkbox will appear, which you can use to erase data from every site in your network if you choose so.', 'LayerSlider') ?></i></p>
+			<h1 class="kmw-modal-title"><?php _e('Erase All Plugin Data', 'LayerSlider') ?></h1>
+			<form method="post" class="inner" onsubmit="return confirm('<?php _e('This action cannot be undone. All LayerSlider data will be permanently deleted and you will not be able to restore them afterwards. Please consider every possibility before deciding.\r\n\r\n Are you sure you want to continue?', 'LayerSlider') ?>');">
+				<?php wp_nonce_field('erase_data'); ?>
+				<p><?php _e('When you remove LayerSlider, it does not automatically delete your settings and sliders by default to prevent accidental data loss. You can use this utility if you really want to erase all data used by LayerSlider.', 'LayerSlider') ?></p>
+				<p class="ls-dark"><?php _e('The following actions will be performed when you confirm your intention to erase all plugin data:', 'LayerSlider'); ?></p>
 
-					<p><?php _e('Please note: You CANNOT UNDO this action. Please CONSIDER EVERY POSSIBILITY before choosing to erase all plugin data, as you will not be able to restore data afterwards.', 'LayerSlider') ?></p>
+				<ul>
+					<li><?php _e('Remove the <i>wp_layerslider</i> database table, which stores your sliders.', 'LayerSlider') ?></li>
+					<li><?php _e('Remove the relevant entries from the <i>wp_options</i> database table, which stores plugin settings.', 'LayerSlider') ?></li>
+					<li><?php _e('Remove the relevant entries from the <i>wp_usermeta</i> database table, which stores user associated plugin settings.', 'LayerSlider') ?></li>
+					<li><?php _e('Remove files and folders created by LayerSlider from the <i>/wp-content/uploads</i> directory. This will not affect your own uploads in the Media Library.', 'LayerSlider') ?></li>
+					<li><?php _e('Deactivate LayerSlider as a last step.', 'LayerSlider') ?></li>
+				</ul>
+				<p><i><?php _e('The actions above will be performed on this blog only. If you have a multisite network and you are a network administrator, then an “Apply to all sites” checkbox will appear, which you can use to erase data from every site in your network if you choose so.', 'LayerSlider') ?></i></p>
 
-					<?php if( is_multisite() && current_user_can('manage_network') ) : ?>
-						<p class="center centered">
-							<label><input type="checkbox" name="networkwide" onclick="return confirm('<?php _e('Are you sure you want to erase plugin data from every site in network?', 'LayerSlider') ?>');"> <?php _e('Apply to all sites in multisite network', 'LayerSlider') ?></label>
-						</p>
-					<?php endif ?>
+				<p><?php _e('Please note: You CANNOT UNDO this action. Please CONSIDER EVERY POSSIBILITY before choosing to erase all plugin data, as you will not be able to restore data afterwards.', 'LayerSlider') ?></p>
 
+				<?php if( is_multisite() && current_user_can('manage_network') ) : ?>
+					<p class="ls-center">
+						<label><input type="checkbox" name="networkwide" onclick="return confirm('<?php _e('Are you sure you want to erase plugin data from every site in network?', 'LayerSlider') ?>');"> <?php _e('Apply to all sites in multisite network', 'LayerSlider') ?></label>
+					</p>
+				<?php endif ?>
+
+
+				<div class="ls-center">
 					<button type="submit" name="ls-erase-plugin-data" class="button button-primary button-hero <?php echo $isAdmin ? '' : 'disabled' ?>" <?php echo $isAdmin ? '' : 'disabled' ?>><?php _e('Erase Plugin Data', 'LayerSlider') ?></button>
 					<?php if( ! $isAdmin ) : ?>
-					<i class="ls-notice"><?php _e('You must be an administrator to use this feature.', 'LayerSlider') ?></i>
+					<div class="ls-notice">
+						<?php _e('You must be an administrator to use this feature.', 'LayerSlider') ?>
+					</div>
 					<?php endif ?>
-				</form>
-			</div>
+				</div>
+			</form>
 		</div>
 	</script>
 
@@ -409,20 +419,29 @@ $isAdmin 		= current_user_can('manage_options');
 	<script>
 
 		jQuery(document).ready(function() {
+
 			jQuery('.ls-phpinfo-button').click(function() {
 
-				var $modal 		= kmUI.modal.open( '#ls-phpinfo-modal', {
-					width: 940,
-					height: 2000
-				}),
-					$contents 	= jQuery( jQuery('#ls-phpinfo').text() );
+				var $modal = kmw.modal.open({
+					content: '#ls-phpinfo-modal',
+					minWidth: 400,
+					maxWidth: 1200,
+					maxHeight: '100%'
+				});
+
+				var $contents = jQuery('#ls-phpinfo').text();
 
 				$modal.find('iframe').contents().find('html').html( $contents );
 			});
 
 
 			jQuery('.ls-erase-button').click(function() {
-				kmUI.modal.open('#ls-erase-modal');
+
+				kmw.modal.open({
+					content: '#ls-erase-modal',
+					minWidth: 400,
+					maxWidth: 1000
+				});
 			});
 
 		});

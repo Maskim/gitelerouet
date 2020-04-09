@@ -15,6 +15,16 @@
 	$sliderItem = LS_Sliders::find($id);
 	$slider = $sliderItem['data'];
 
+	// Redirect back to the slider list if the slider cannot be found
+	// or it is malformed or a group item.
+	//
+	// Using <script> tag since headers are already sent out at this point.
+	if( empty( $slider ) || ! empty( $sliderItem['flag_group'] ) ){
+		die('<script>window.location.href = "'.admin_url('admin.php?page=layerslider').'";</script>');
+	}
+
+	// Product activation
+	$lsActivated = LS_Config::isActivatedSite();
 
 	// Get screen options
 	$lsScreenOptions = get_option('ls-screen-options', '0');
@@ -31,9 +41,19 @@
 		$lsScreenOptions['useKeyboardShortcuts'] = 'true';
 	}
 
-	// Deafults: keyboard shortcuts
+	// Deafults: notify osd
 	if( ! isset($lsScreenOptions['useNotifyOSD'])) {
 		$lsScreenOptions['useNotifyOSD'] = 'true';
+	}
+
+	// Deafults: collapse sidebar
+	if( ! isset($lsScreenOptions['collapseSidebar'])) {
+		$lsScreenOptions['collapseSidebar'] = 'true';
+	}
+
+	// Deafults: hover sidebar on hover
+	if( ! isset($lsScreenOptions['expandSidebarOnHover'])) {
+		$lsScreenOptions['expandSidebarOnHover'] = 'true';
 	}
 
 	// Get phpQuery
@@ -59,10 +79,6 @@
 	$settingsTabClass = isset($_GET['showsettings']) ? 'active' : '';
 	$slidesTabClass = !isset($_GET['showsettings']) ? 'active' : '';
 
-	// Fixes
-	if(!isset($slider['layers'][0]['properties'])) {
-		$slider['layers'][0]['properties'] = array();
-	}
 
 	// Get google fonts
 	$googleFonts = get_option('ls-google-fonts', array() );
@@ -77,15 +93,24 @@
 	<div id="screen-options-wrap" class="hidden">
 		<form id="ls-screen-options-form" method="post">
 			<?php wp_nonce_field('ls-save-screen-options'); ?>
-			<h5><?php _e('Use features', 'LayerSlider') ?></h5>
+			<h5><?php _e('General features', 'LayerSlider') ?></h5>
 			<label>
-				<input type="checkbox" name="showTooltips"<?php echo $lsScreenOptions['showTooltips'] == 'true' ? ' checked="checked"' : ''?>> Tooltips
+				<input type="checkbox" name="showTooltips"<?php echo $lsScreenOptions['showTooltips'] == 'true' ? ' checked="checked"' : ''?>> <?php _e('Tooltips', 'LayerSlider') ?>
 			</label>
 			<label>
-				<input type="checkbox" name="useKeyboardShortcuts"<?php echo $lsScreenOptions['useKeyboardShortcuts'] == 'true' ? ' checked="checked"' : ''?>> Keyboard shortcuts
+				<input type="checkbox" name="useKeyboardShortcuts"<?php echo $lsScreenOptions['useKeyboardShortcuts'] == 'true' ? ' checked="checked"' : ''?>> <?php _e('Keyboard Shortcuts', 'LayerSlider') ?>
 			</label>
 			<label>
-				<input type="checkbox" name="useNotifyOSD"<?php echo $lsScreenOptions['useNotifyOSD'] == 'true' ? ' checked="checked"' : ''?>> On Screen Notifications
+				<input type="checkbox" name="useNotifyOSD"<?php echo $lsScreenOptions['useNotifyOSD'] == 'true' ? ' checked="checked"' : ''?>> <?php _e('On Screen Notifications', 'LayerSlider') ?>
+			</label>
+
+			<br><br>
+			<h5><?php _e('Sidebar features', 'LayerSlider') ?></h5>
+			<label>
+				<input type="checkbox" name="collapseSidebar"<?php echo $lsScreenOptions['collapseSidebar'] == 'true' ? ' checked="checked"' : ''?>> <?php _e('Collapse Sidebar While Editing', 'LayerSlider') ?>
+			</label>
+			<label>
+				<input type="checkbox" name="expandSidebarOnHover"<?php echo $lsScreenOptions['expandSidebarOnHover'] == 'true' ? ' checked="checked"' : ''?>> <?php _e('Expand Sidebar On Hover', 'LayerSlider') ?>
 			</label>
 		</form>
 	</div>
@@ -96,11 +121,22 @@
 
 <!-- Load templates -->
 <?php
-include LS_ROOT_PATH . '/templates/tmpl-share-sheet.php';
+
 include LS_ROOT_PATH . '/templates/tmpl-layer-item.php';
 include LS_ROOT_PATH . '/templates/tmpl-static-layer-item.php';
 include LS_ROOT_PATH . '/templates/tmpl-layer.php';
+include LS_ROOT_PATH . '/templates/tmpl-preview-context-menu.php';
 include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
+include LS_ROOT_PATH . '/templates/tmpl-popup-presets-window.php';
+include LS_ROOT_PATH . '/templates/tmpl-popup-example-slider.php';
+include LS_ROOT_PATH . '/templates/tmpl-post-chooser.php';
+include LS_ROOT_PATH . '/templates/tmpl-insert-icons-modal.php';
+include LS_ROOT_PATH . '/templates/tmpl-insert-media-modal.php';
+include LS_ROOT_PATH . '/templates/tmpl-button-presets.php';
+include LS_ROOT_PATH . '/templates/tmpl-import-slide.php';
+include LS_ROOT_PATH . '/templates/tmpl-import-layer.php';
+include LS_ROOT_PATH . '/templates/tmpl-slide-tab.php';
+include LS_ROOT_PATH . '/templates/tmpl-activation.php';
 
 ?>
 
@@ -140,15 +176,6 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 		$slider['properties']['yourlogoThumb'] = apply_filters('ls_get_thumbnail', $slider['properties']['yourlogoId'], $slider['properties']['yourlogo']);
 	}
 
-
-	$slider['properties']['cbinit'] = !empty($slider['properties']['cbinit']) ? stripslashes($slider['properties']['cbinit']) : $lsDefaults['slider']['cbInit']['value'];
-	$slider['properties']['cbstart'] = !empty($slider['properties']['cbstart']) ? stripslashes($slider['properties']['cbstart']) : $lsDefaults['slider']['cbStart']['value'];
-	$slider['properties']['cbstop'] = !empty($slider['properties']['cbstop']) ? stripslashes($slider['properties']['cbstop']) : $lsDefaults['slider']['cbStop']['value'];
-	$slider['properties']['cbpause'] = !empty($slider['properties']['cbpause']) ? stripslashes($slider['properties']['cbpause']) : $lsDefaults['slider']['cbPause']['value'];
-	$slider['properties']['cbanimstart'] = !empty($slider['properties']['cbanimstart']) ? stripslashes($slider['properties']['cbanimstart']) : $lsDefaults['slider']['cbAnimStart']['value'];
-	$slider['properties']['cbanimstop'] = !empty($slider['properties']['cbanimstop']) ? stripslashes($slider['properties']['cbanimstop']) : $lsDefaults['slider']['cbAnimStop']['value'];
-	$slider['properties']['cbprev'] = !empty($slider['properties']['cbprev']) ? stripslashes($slider['properties']['cbprev']) : $lsDefaults['slider']['cbPrev']['value'];
-	$slider['properties']['cbnext'] = !empty($slider['properties']['cbnext']) ? stripslashes($slider['properties']['cbnext']) : $lsDefaults['slider']['cbNext']['value'];
 
 
 	if( empty($slider['properties']['new']) && empty($slider['properties']['type']) ) {
@@ -213,6 +240,12 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 
 	foreach($slider['layers'] as $slideKey => $slideVal) {
 
+		// Make sure to each slide has a 'properties' object
+		if( ! isset( $slideVal['properties'] ) ) {
+			$slideVal['properties'] = array();
+		}
+
+
 		// Get slide background
 		if( ! empty($slideVal['properties']['backgroundId']) ) {
 			$slideVal['properties']['background'] = apply_filters('ls_get_image', $slideVal['properties']['backgroundId'], $slideVal['properties']['background']);
@@ -251,6 +284,11 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 					$layerVal['posterThumb'] = apply_filters('ls_get_thumbnail', $layerVal['posterId'], $layerVal['poster']);
 				}
 
+				if( ! empty($layerVal['layerBackgroundId']) ) {
+					$layerVal['layerBackground'] = apply_filters('ls_get_image', $layerVal['layerBackgroundId'], $layerVal['layerBackground']);
+					$layerVal['layerBackgroundThumb'] = apply_filters('ls_get_thumbnail', $layerVal['layerBackgroundId'], $layerVal['layerBackground']);
+				}
+
 				// Ensure that magic quotes will not mess with JSON data
 				if(function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc()) {
 					$layerVal['styles'] = stripslashes($layerVal['styles']);
@@ -266,6 +304,14 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				if(isset($layerVal['top'])) { $layerVal['styles']->top = $layerVal['top']; unset($layerVal['top']); }
 				if(isset($layerVal['left'])) { $layerVal['styles']->left = $layerVal['left']; unset($layerVal['left']); }
 				if(isset($layerVal['wordwrap'])) { $layerVal['styles']->wordwrap = $layerVal['wordwrap']; unset($layerVal['wordwrap']); }
+
+				// v6.8.5: Introduced individual background properties for layers such as size, position, etc.
+				// Thus we need to specify each property with its own unique key instead of the combined 'background'
+				// to avoid potentially overriding previous settings.
+				if( ! empty( $layerVal['styles']->background ) ) {
+					$layerVal['styles']->{'background-color'} = $layerVal['styles']->background;
+					unset( $layerVal['styles']->background );
+				}
 
 				if( ! empty( $layerVal['transition']->showuntil ) ) {
 
@@ -283,6 +329,17 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				$layerVal['innerAttributes'] = !empty($layerVal['innerAttributes']) ?  (object) $layerVal['innerAttributes'] : new stdClass;
 				$layerVal['outerAttributes'] = !empty($layerVal['outerAttributes']) ?  (object) $layerVal['outerAttributes'] : new stdClass;
 
+
+				// v6.5.6: Convert old checkbox media settings to the new
+				// select based options.
+				if( isset( $layerVal['transition']->controls ) ) {
+					if( true === $layerVal['transition']->controls ) {
+						$layerVal['transition']->controls = 'auto';
+					} elseif( false === $layerVal['transition']->controls ) {
+						$layerVal['transition']->controls = 'disabled';
+					}
+				}
+
 				$slider['layers'][$slideKey]['sublayers'][$layerKey] = $layerVal;
 			}
 		} else {
@@ -294,6 +351,12 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 		foreach( $slider['callbacks'] as $key => $callback ) {
 			$slider['callbacks'][$key] = stripslashes($callback);
 		}
+	}
+
+	// v6.6.8: Set slider type to responsive in case of Popup
+	// on a non-activated site.
+	if( ! $lsActivated && ! empty( $slider['properties']['type'] ) && $slider['properties']['type'] === 'popup' ) {
+		$slider['properties']['type'] = 'responsive';
 	}
 
 	// Slider version
@@ -312,6 +375,10 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 
 	// Screen options
 	var lsScreenOptions = <?php echo json_encode($lsScreenOptions) ?>;
+
+	var pixieJSFile = '<?php echo LS_ROOT_URL.'/static/pixie/scripts.min.js?ver='.LS_PLUGIN_VERSION ?>';
+	var pixieCSSFile = '<?php echo LS_ROOT_URL.'/static/pixie/styles.min.css?ver='.LS_PLUGIN_VERSION ?>';
+
 </script>
 
 
@@ -329,20 +396,20 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 			<?php _e('Editing slider:', 'LayerSlider') ?>
 			<?php $sliderName = !empty($slider['properties']['title']) ? $slider['properties']['title'] : 'Unnamed'; ?>
 			<?php echo apply_filters('ls_slider_title', $sliderName, 30) ?>
-			<a href="?page=layerslider" class="add-new-h2"><?php _e('Back to the list', 'LayerSlider') ?></a>
+			<a href="?page=layerslider" class="add-new-h2"><?php _e('&larr; Sliders', 'LayerSlider') ?></a>
 		</h2>
 
 		<!-- Version number -->
 		<?php include LS_ROOT_PATH . '/templates/tmpl-beta-feedback.php'; ?>
 
-		<div class="ls-notify-osd saved">
-			<i class="dashicons dashicons-yes"></i>
-			<?php _e('Slider saved successfully', 'LayerSlider') ?>
+		<div class="ls-notify-osd">
+			<span class="icon"></span>
+			<span class="text"></span>
 		</div>
 
 		<!-- Main menu bar -->
 		<div id="ls-main-nav-bar">
-			<a href="#" class="settings <?php echo $settingsTabClass ?>">
+			<a href="#slider-settings" data-deeplink="slider-settings" class="settings <?php echo $settingsTabClass ?>">
 				<i class="dashicons dashicons-admin-tools"></i>
 				<?php _e('Slider Settings', 'LayerSlider') ?>
 			</a>
@@ -350,15 +417,15 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				<i class="dashicons dashicons-images-alt"></i>
 				<?php _e('Slides', 'LayerSlider') ?>
 			</a>
-			<a href="#" class="callbacks">
+			<a href="#callbacks" data-deeplink="callbacks" class="callbacks">
 				<i class="dashicons dashicons-redo"></i>
 				<?php _e('Event Callbacks', 'LayerSlider') ?>
 			</a>
-			<a href="https://support.kreaturamedia.com/faq/4/layerslider-for-wordpress/" target="_blank" class="faq right unselectable">
+			<a href="https://kreatura.ticksy.com/" target="_blank" class="faq right unselectable">
 				<i class="dashicons dashicons-sos"></i>
 				<?php _e('FAQ', 'LayerSlider') ?>
 			</a>
-			<a href="https://support.kreaturamedia.com/docs/layersliderwp/documentation.html" target="_blank" class="support right unselectable">
+			<a href="https://layerslider.kreaturamedia.com/documentation/" target="_blank" class="support right unselectable">
 				<i class="dashicons dashicons-editor-help"></i>
 				<?php _e('Documentation', 'LayerSlider') ?>
 			</a>
@@ -383,22 +450,72 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 		<div class="ls-page <?php echo $slidesTabClass ?>">
 
 			<!-- Slide tabs -->
-			<div id="ls-layer-tabs">
+			<div id="ls-slide-tabs" class="clearfix">
 				<?php
 					foreach($slider['layers'] as $key => $layer) :
 					$active = empty($key) ? 'active' : '';
 					$name = !empty($layer['properties']['title']) ? $layer['properties']['title'] : sprintf(__('Slide #%d', 'LayerSlider'), ($key+1));
+
 					$bgImage = !empty($layer['properties']['background']) ? $layer['properties']['background'] : null;
 					$bgImageId = !empty($layer['properties']['backgroundId']) ? $layer['properties']['backgroundId'] : null;
-					$image = apply_filters('ls_get_image', $bgImageId, $bgImage, true);
+
+					$thumb = !empty($layer['properties']['thumbnail']) ? $layer['properties']['thumbnail'] : null;
+					$thumbId = !empty($layer['properties']['thumbnailId']) ? $layer['properties']['thumbnailId'] : null;
+
+					$image = ! empty( $thumb ) ? apply_filters('ls_get_image', $thumbId, $thumb, true) : apply_filters('ls_get_image', $bgImageId, $bgImage, true);
+					$empty = (false !== strpos( $image, 'blank.gif')) ? 'empty' : '';
+
+					$hidden = ! empty( $layer['properties']['skip'] ) ? 'skip' : '';
 				?>
-				<a href="#" class="<?php echo $active ?>" data-help="<div style='background-image: url(<?php echo $image?>);'></div>" data-help-class="ls-slide-preview-tooltip popover-light ls-popup" data-help-delay="1" data-help-transition="false">
-					<span><?php echo $name ?></span>
-					<span class="dashicons dashicons-dismiss"></span>
-				</a>
+				<div class="ls-slide-tab <?php echo $active ?> <?php echo $hidden ?> <?php echo $empty ?>">
+					<span class="ls-slide-counter"></span>
+					<span class="ls-slide-hidden dashicons dashicons-hidden"></span>
+					<span class="ls-slide-actions dashicons dashicons-arrow-down-alt2"></span>
+					<div class="ls-slide-preview" style="background-image: url(<?php echo $image?>)">
+						<span><?php _e('No Preview', 'LayerSlider') ?></span>
+					</div>
+					<div class="ls-slide-name">
+						<input type="text" value="<?php echo htmlspecialchars($name) ?>" placeholder="<?php _e('Type slide name here', 'LayerSlider') ?>">
+					</div>
+					<ul class="ls-slide-actions-sheet ls-hidden">
+						<li class="ls-slide-duplicate">
+							<span>
+								<i class="dashicons dashicons-admin-page"></i>
+								<?php _e('Duplicate', 'LayerSlider') ?>
+							</span>
+						</li>
+						<li class="ls-slide-visibility">
+							<span>
+								<i class="dashicons dashicons-hidden"></i>
+								<?php _e('Hide', 'LayerSlider') ?>
+							</span>
+							<span>
+								<i class="dashicons dashicons-visibility"></i>
+								<?php _e('Unhide', 'LayerSlider') ?>
+							</span>
+						</li>
+						<li class="ls-slide-remove">
+							<span>
+								<i class="dashicons dashicons-trash"></i>
+								<?php _e('Remove', 'LayerSlider') ?>
+							</span>
+						</li>
+					</ul>
+				</div>
 				<?php endforeach; ?>
-				<a href="#"  title="<?php _e('Add new slide', 'LayerSlider') ?>" class="unsortable" id="ls-add-layer"><i class="dashicons dashicons-plus"></i></a>
-				<div class="unsortable clear"></div>
+
+				<div id="ls-add-slide" class="unsortable ls-slide-controls">
+					<div>
+						<i class="dashicons dashicons-plus"></i>
+						<span><?php _e('Add New', 'LayerSlider') ?></span>
+					</div>
+				</div>
+				<div id="ls-import-slide" class="unsortable ls-slide-controls">
+					<div>
+						<i class="dashicons dashicons-upload"></i>
+						<span><?php _e('Import', 'LayerSlider') ?></span>
+					</div>
+				</div>
 			</div>
 
 			<!-- Slides -->
@@ -412,11 +529,11 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 
 			<div class="ls-notification-info">
 				<i class="dashicons dashicons-info"> </i>
-				<?php echo sprintf(__('Please read our %sonline documentation%s before start using the API. LayerSlider 6 introduced an entirely new API model with different events and methods.', 'LayerSlider'), '<a href="https://support.kreaturamedia.com/docs/layersliderwp/documentation.html#layerslider-api" target="_blank">', '</a>') ?>
+				<?php echo sprintf(__('Please read our %sonline documentation%s for more information about the API.', 'LayerSlider'), '<a href="https://layerslider.kreaturamedia.com/documentation/#layerslider-api" target="_blank">', '</a>') ?>
 			</div>
 
 
-			<div class="ls-callback-separator">Init Events</div>
+			<div class="ls-callback-separator"><?php _e('Init Events', 'LayerSlider') ?></div>
 
 			<div class="ls-box ls-callback-box">
 				<h3 class="header">
@@ -442,7 +559,7 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				</div>
 			</div>
 
-			<div class="ls-callback-separator">Resize Events</div>
+			<div class="ls-callback-separator"><?php _e('Resize Events', 'LayerSlider') ?></div>
 
 
 			<div class="ls-box ls-callback-box side">
@@ -469,7 +586,7 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				</div>
 			</div>
 
-			<div class="ls-callback-separator">Slideshow Events</div>
+			<div class="ls-callback-separator"><?php _e('Slideshow Events', 'LayerSlider') ?></div>
 
 
 			<div class="ls-box ls-callback-box">
@@ -509,7 +626,7 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 			</div>
 
 
-			<div class="ls-callback-separator">Slide Change Event</div>
+			<div class="ls-callback-separator"><?php _e('Slide Change Events', 'LayerSlider') ?></div>
 
 
 			<div class="ls-box ls-callback-box">
@@ -561,7 +678,7 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 			</div>
 
 
-			<div class="ls-callback-separator">Slide Timeline Events</div>
+			<div class="ls-callback-separator"><?php _e('Slide Timeline Events', 'LayerSlider') ?></div>
 
 			<div class="ls-box ls-callback-box">
 				<h3 class="header">
@@ -625,8 +742,85 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				</div>
 			</div>
 
+			<div class="ls-callback-separator"><?php _e('Media Events', 'LayerSlider') ?></div>
 
-			<div class="ls-callback-separator">Destroy Events</div>
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					mediaDidStart
+					<figure><span>|</span> <?php _e('A media element on the current slide has started playback.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="mediaDidStart" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					mediaDidStop
+					<figure><span>|</span> <?php _e('A media element on the current slide has stopped playback.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="mediaDidStop" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+
+			<div class="ls-callback-separator"><?php _e('Popup Events', 'LayerSlider') ?></div>
+
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					popupWillOpen
+					<figure><span>|</span> <?php _e('Fires when the Popup starts its opening transition and becomes visible.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="popupWillOpen" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					popupDidOpen
+					<figure><span>|</span> <?php _e('Fires when the Popup completed its opening transition.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="popupDidOpen" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					popupWillClose
+					<figure><span>|</span> <?php _e('Fires when the Popup stars its closing transition.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="popupWillClose" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+			<div class="ls-box ls-callback-box">
+				<h3 class="header">
+					popupDidClose
+					<figure><span>|</span> <?php _e('Fires when the Popup completed its closing transition and became hidden.', 'LayerSlider') ?></figure>
+				</h3>
+				<div>
+					<textarea name="popupDidClose" cols="20" rows="5" class="ls-codemirror">function( event, slider ) {
+
+}</textarea>
+				</div>
+			</div>
+
+
+			<div class="ls-callback-separator"><?php _e('Destroy Events', 'LayerSlider') ?></div>
 
 
 			<div class="ls-box ls-callback-box">
@@ -653,93 +847,6 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 				</div>
 			</div>
 
-
-			<div class="ls-callback-separator"><?php _e('Old API Events', 'LayerSlider') ?></div>
-			<div class="ls-notification-info">
-				<i class="dashicons dashicons-info"> </i>
-				<?php _e('The events below were used in version 5 and earlier. These events are no longer in use, they cannot be edited. They are shown only to offer you a way of viewing and porting them to the new API.', 'LayerSlider') ?>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbInit
-					<figure><span>|</span> <?php _e('Fires when LayerSlider has loaded.', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbinit" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbinit'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbStart
-					<figure><span>|</span> <?php _e('Calling when the slideshow has started.', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbstart" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbstart'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box side">
-				<h3 class="header">
-					cbStop
-					<figure><span>|</span> <?php _e('Calling when the slideshow is stopped by the user.', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbstop" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbstop'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbPause
-					<figure><span>|</span> <?php _e('Fireing when the slideshow is temporary on hold (e.g.: “Pause on hover” feature).', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbpause" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbpause'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbAnimStart
-					<figure><span>|</span> <?php _e('Calling when the slider commencing slide change (animation start).', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbanimstart" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbanimstart'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box side">
-				<h3 class="header">
-					cbAnimStop
-					<figure><span>|</span> <?php _e('Fireing when the slider finished a slide change (animation end).', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbanimstop" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbanimstop'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbPrev
-					<figure><span>|</span> <?php _e('Calling when the slider will change to the previous slide by the user.', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbprev" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbprev'] ?></textarea>
-				</div>
-			</div>
-
-			<div class="ls-box ls-callback-box">
-				<h3 class="header">
-					cbNext
-					<figure><span>|</span> <?php _e('Calling when the slider will change to the next slide by the user.', 'LayerSlider') ?></figure>
-				</h3>
-				<div>
-					<textarea readonly name="cbnext" cols="20" rows="5" class="ls-codemirror"><?php echo $slider['properties']['cbnext'] ?></textarea>
-				</div>
-			</div>
-
 		</div>
 	</div>
 
@@ -750,7 +857,7 @@ include LS_ROOT_PATH . '/templates/tmpl-transition-window.php';
 			<?php
 				$revisions = LS_Revisions::count( $id );
 				if( $revisions > 1 ) : ?>
-				<p class="revisions"><span><i class="dashicons dashicons-backup"></i><?php echo sprintf(__('Revisions Available:', 'LayerSlider'), $revisions) ?></span><br><a href="<?php echo admin_url('admin.php?page=ls-revisions&id='.$id) ?>"><?php echo sprintf(__('Browse %d Revisions', 'LayerSlider'), $revisions) ?></a></p>
+				<p class="revisions"><span><i class="dashicons dashicons-backup"></i><?php echo sprintf(__('Revisions Available:', 'LayerSlider'), $revisions) ?></span><br><a href="<?php echo admin_url('admin.php?page=layerslider-addons&section=revisions&id='.$id) ?>"><?php echo sprintf(__('Browse %d Revisions', 'LayerSlider'), $revisions) ?></a></p>
 			<?php endif ?>
 
 			<p><span><?php _e('Use shortcode:', 'LayerSlider') ?></span><br><span>[layerslider id="<?php echo !empty($slider['properties']['slug']) ? $slider['properties']['slug'] : $id ?>"]</span></p>

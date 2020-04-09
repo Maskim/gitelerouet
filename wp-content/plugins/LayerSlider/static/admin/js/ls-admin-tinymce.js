@@ -1,5 +1,13 @@
 jQuery(document).ready(function($) {
 
+	// In some rare cases the globally loaded LS_MCE_l10n
+	// variable might not be available due to plugins making
+	// changes in the WP script queue. The below makes sure
+	// that we can at least avoid undef JS errors.
+	if( typeof LS_MCE_l10n === 'undefined' ) {
+		LS_MCE_l10n = {};
+	}
+
 	tinymce.create('tinymce.plugins.layerslider_plugin', {
 
 		init : function(ed, url) {
@@ -116,7 +124,7 @@ jQuery(document).ready(function($) {
 							});
 						}
 
-						$('.name', $item).text( item.name );
+						$('.name', $item).html( item.name );
 
 						$item.appendTo( $inner );
 					});
@@ -133,7 +141,7 @@ jQuery(document).ready(function($) {
 
 			// Add to multi-select
 			if( event.ctrlKey || event.metaKey ) {
-				$item.addClass('selected');
+				$item.toggleClass('selected');
 
 			// Single select
 			} else {

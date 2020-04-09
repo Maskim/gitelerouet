@@ -119,14 +119,15 @@ var lsLogo = {
 
 			// Add data-* params to replacement element
 			$.each( $el.data(), function( key, val ) {
+				key = key.replace(/([a-zA-Z])(?=[A-Z])/g, '$1-').toLowerCase()
 				$rep.attr('data-'+key, val);
 			});
 
 			// Set default state
-			if($el.prop('checked')) {
-				$rep.addClass('on');
+			if( $el.prop( 'checked' ) ) {
+				$rep.addClass( 'on' );
 			} else {
-				$rep.addClass('off');
+				$rep.addClass( 'off' );
 			}
 		});
 	};
@@ -182,7 +183,6 @@ var lsLogo = {
 	};
 
 }( jQuery ));
-
 
 
 (function( $ ) {
@@ -375,9 +375,9 @@ jQuery(function($) {
 		init : function(){
 
 			$(document).on('click', '[data-ls-su]', function() {
-				if( $(this).parent().find('.ls-su').length == 0 ){
-					lsSlideUnder.create($(this));
-				}
+				//if( $(this).parent().find('.ls-su').length == 0 ){
+					lsSlideUnder.open($(this));
+				//}
 			});
 		},
 
@@ -402,12 +402,6 @@ jQuery(function($) {
 			$su.addClass('ls-su');
 			$sui.addClass('ls-su-inner');
 			$suc.addClass('ls-su-content');
-
-			// Creating close function
-
-			$(document).one('click',function(){
-				lsSlideUnder.close($su, $sui);
-			});
 
 			// Appending into the parent of the opener element
 
@@ -455,11 +449,22 @@ jQuery(function($) {
 			// Inserting data to content
 
 			$suc.append( $el.siblings('.ls-su-data').html() );
-
-			lsSlideUnder.open($su, $sui);
 		},
 
-		open : function ($su, $sui){
+		open : function( $el ){
+
+			if( !$el.parent().find( '.ls-su' ).length ){
+				lsSlideUnder.create( $el );
+			}
+
+			$su = $el.parent().find( '.ls-su' );
+			$sui = $el.parent().find( '.ls-su-inner' );
+
+			if( $su.hasClass( 'ls-su-opened') ){
+				return;
+			}
+
+			$su.addClass( 'ls-su-opened' );
 
 			TweenLite.set( $su.parent()[0], {
 					z:100
@@ -475,6 +480,12 @@ jQuery(function($) {
 				}
 			);
 
+			TweenLite.set( $sui[0],
+				{
+					top: 0
+				}
+			);
+
 			TweenLite.to(
 				$su[0],
 				2,
@@ -484,6 +495,12 @@ jQuery(function($) {
 					ease: 'Elastic.easeOut'
 				}
 			);
+
+			// Creating close function
+
+			$(document).one( 'click', function(e){
+				lsSlideUnder.close($su, $sui);
+			});
 		},
 
 		close : function($su, $sui){
@@ -505,7 +522,7 @@ jQuery(function($) {
 					height: 0,
 					ease: 'Quart.easeIn',
 					onComplete : function(){
-						$su.remove();
+						$su.removeClass( 'ls-su-opened' );
 					}
 				}
 			);
@@ -566,10 +583,12 @@ jQuery(function($) {
 
 	lsUIDependencies.init();
 
-	// Screen options
-	$('#ls-screen-options, #ls-guides').children(':first-child').appendTo('#screen-meta');
-	$('#ls-screen-options, #ls-guides').children(':last-child').appendTo('#screen-meta-links');
 	lsScreenOptionsActions.init();
+
+	// Screen options
+	$('#ls-guides, #ls-screen-options').children(':first-child').prependTo('#screen-meta');
+	$('#ls-guides, #ls-screen-options').children(':last-child').prependTo('#screen-meta-links');
+
 
 
 	// CodeMirror
@@ -577,12 +596,17 @@ jQuery(function($) {
 		LS_CodeMirror.init();
 	}
 
+	// About page
+	if( document.location.href.indexOf('section=about') !== -1 ) {
+		lsLogo.append( '.layerslider-logo', true );
+		$('.km-tabs').kmTabs();
+	}
+
 
 	// Skin/CSS Editor
-	if(document.location.href.indexOf('ls-skin-editor') != -1 ||
-		document.location.href.indexOf('ls-style-editor') != -1) {
+	if( document.location.href.indexOf('section=skin-editor') !== -1 ) {
 		$('select[name="skin"]').change(function() {
-			document.location.href = 'admin.php?page=ls-skin-editor&skin=' + $(this).children(':selected').val();
+			document.location.href = 'admin.php?page=layerslider-options&section=skin-editor&skin=' + $(this).children(':selected').val();
 		});
 	}
 
@@ -597,12 +621,12 @@ jQuery(function($) {
 		// Disabled, exit quietly
 		if( el.disabled ) { return; }
 
-		if( $(el).is(':checked') ) {
+		if( $(el).is(':checked') && ! $(this).is('.indeterminate') ) {
 			$(el).prop('checked', false);
-			$(this).removeClass('on').addClass('off');
+			$(this).removeClass('on indeterminate').addClass('off');
 		} else {
 			$(el).prop('checked', true);
-			$(this).removeClass('off').addClass('on');
+			$(this).removeClass('off indeterminate').addClass('on');
 		}
 
 		// Trigger events
@@ -611,19 +635,39 @@ jQuery(function($) {
 		$(document).trigger( $.Event('click', { target : el } ) );
 	});
 
-
-	// Share sheet
-	$('#ls-share-template .inner a').click(function(e) {
-		e.preventDefault();
-
-		var newWindow = window.open('', '_blank', 'width=700,height=400');
-			newWindow.location.href = $(this).attr('href');
-			newWindow.focus();
-	});
-
-
-	$('#ls-share-template h3 a').click(function(e) {
-		e.preventDefault();
-		$('#ls-share-template, .ls-overlay').remove();
-	});
 });
+
+
+var lsDisplayActivationWindow = function( windowProperties ) {
+
+	var deafultProperties = {
+		into: 'body',
+		title: LS_l10n.activationFeature,
+		content: $('#tmpl-activation').text()
+	};
+
+	windowProperties = $.extend( true, deafultProperties, windowProperties );
+
+	kmw.modal.open({
+		uid: 'activation-window',
+		into: windowProperties.into,
+		title: windowProperties.title,
+		content: windowProperties.content,
+		minWidth: 880,
+		maxWidth: 880,
+		minHeight: 740,
+		maxHeight: 740,
+
+		modalClasses: 'activation-modal-window',
+
+		overlaySettings: {
+			animationIn: 'fade'
+		},
+
+		onOpen: function( modal ) {
+
+			$( modal.element ).addClass('kmw-modal-visible');
+		}
+	});
+
+}
