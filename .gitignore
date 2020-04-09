@@ -21,4 +21,5 @@ node_modules/
 *.log
 *.sql
 *.sqlite
-
+wp-config.php
+ #fastcgi_pass 127.0.0.1:9000; # uncomment if you are using PHP via TCP sockets (e.g. Docker container)
